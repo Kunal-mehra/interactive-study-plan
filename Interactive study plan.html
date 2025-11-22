@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Study Plan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7fafc;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 350px;
+        }
+        .bar-chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 450px;
+            max-height: 600px;
+        }
+        .kpi-card {
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .kpi-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            line-height: 1.1;
+            color: #4A5568;
+        }
+        .kpi-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #718096;
+            margin-top: 0.5rem;
+        }
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: all 0.2s ease-in-out;
+            border: 2px solid transparent;
+            background-color: #ffffff;
+            color: #4A5568;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+        .filter-btn:hover {
+            background-color: #f7fafc;
+        }
+        .filter-btn.active {
+            background-color: #EAE7DC;
+            color: #8E8D8A;
+            border-color: #D8C3A5;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+        /* Modal Styles */
+        dialog::backdrop {
+            background: rgba(0, 0, 0, 0.5);
+        }
+        dialog {
+            border: none;
+            border-radius: 0.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            max-width: 42rem;
+            width: 90%;
+            max-height: 90vh;
+        }
+        /* Toast Styles */
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 50;
+        }
+        .toast {
+            background-color: #48BB78;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-top: 10px;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="text-gray-800 relative">
+
+    <div class="max-w-6xl mx-auto p-4 md:p-8">
+
+        <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+            <div class="text-center md:text-left">
+                <h1 class="text-3xl md:text-4xl font-bold" style="color: #8E8D8A;">Interactive Study Plan</h1>
+                <p class="text-lg text-gray-600 mt-2">Explore your 198-lecture study schedule.</p>
+            </div>
+            <button id="edit-mode-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow transition duration-200 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit Data
+            </button>
+        </header>
+
+        <nav class="flex flex-wrap justify-center gap-2 md:gap-4 mb-8">
+            <button class="filter-btn active" data-filter="all">All Subjects</button>
+            <button class="filter-btn" data-filter="physics">Physics</button>
+            <button class="filter-btn" data-filter="organic">Organic Chem</button>
+            <button class="filter-btn" data-filter="inorganic">Inorganic Chem</button>
+            <button class="filter-btn" data-filter="prereq">Prerequisites</button>
+        </nav>
+
+        <section id="overview-section" class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-center" style="color: #E98074;">Plan Overview</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                <div class="kpi-card">
+                    <div class="kpi-number" style="color: #E85A4F;" id="kpi-total-lectures">198</div>
+                    <div class="kpi-label">Total Lectures</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-number" style="color: #E85A4F;" id="kpi-days">38</div>
+                    <div class="kpi-label">Total Study Days</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-number" style="color: #E85A4F;">Nov 18</div>
+                    <div class="kpi-label">Start Date</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-number" style="color: #E85A4F;" id="kpi-end-date">Dec 25</div>
+                    <div class="kpi-label">Completion Date</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="distribution-section" class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-center" style="color: #E98074;">Lecture Distribution</h2>
+            <p class="text-center text-gray-600 max-w-3xl mx-auto mb-6">
+                This section shows the overall composition of your plan and provides a detailed, filterable breakdown by chapter. The donut chart shows the total plan, while the bar chart and list below will update when you select a subject.
+            </p>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="text-lg font-semibold text-center mb-4">Total Plan Composition</h3>
+                    <div class="chart-container">
+                        <canvas id="compositionDonutChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md min-h-[400px]">
+                    <h3 id="filtered-chart-title" class="text-lg font-semibold text-center mb-4">Chapter Breakdown</h3>
+                    <div id="filtered-chart-placeholder" class="flex items-center justify-center h-[450px] text-gray-500">
+                        <p>Select a subject to see the detailed chapter breakdown.</p>
+                    </div>
+                    <div id="filtered-chart-wrapper" class="bar-chart-container hidden">
+                        <canvas id="filteredBarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="chapter-list-section" class="mb-8 bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-2xl font-semibold mb-4 text-center" style="color: #E98074;">Chapter List</h2>
+            <p class="text-center text-gray-600 max-w-3xl mx-auto mb-6">
+                Here is a complete list of all chapters in your plan. This list will also filter based on your selection above.
+            </p>
+            <ul id="chapter-list" class="space-y-3 max-w-2xl mx-auto">
+            </ul>
+        </section>
+
+        <section id="plan-logic-section" class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-center" style="color: #E98074;">Daily Plan Logic</h2>
+            <p class="text-center text-gray-600 max-w-3xl mx-auto mb-8">
+                Your plan follows a consistent daily rule.
+            </p>
+            <div class="flex flex-col md:flex-row items-stretch justify-center gap-4">
+                <div class="flex-1 kpi-card flex flex-col justify-center">
+                    <div class="text-sm font-bold text-gray-500">PHASE 1</div>
+                    <div class="text-xl font-semibold my-2" style="color: #D8C3A5;">Prerequisites</div>
+                    <div class="text-base text-gray-700">Complete revision lectures first.</div>
+                </div>
+                <div class="flex-shrink-0 flex items-center justify-center text-3xl font-bold" style="color: #D8C3A5;">&rarr;</div>
+                <div class="flex-1 kpi-card flex flex-col justify-center">
+                    <div class="text-sm font-bold text-gray-500">PHASE 2</div>
+                    <div class="text-xl font-semibold my-2" style="color: #E98074;">Main Rule: 3 + 2</div>
+                    <div class="text-base text-gray-700">Study 3 Physics + 2 Organic Chemistry daily.</div>
+                </div>
+                <div class="flex-shrink-0 flex items-center justify-center text-3xl font-bold" style="color: #D8C3A5;">&rarr;</div>
+                <div class="flex-1 kpi-card flex flex-col justify-center">
+                    <div class="text-sm font-bold text-gray-500">PHASE 3 & 4</div>
+                    <div class="text-xl font-semibold my-2" style="color: #E85A4F;">Pivot</div>
+                    <div class="text-base text-gray-700">Pivot to Physics + Inorganic, then Finish Physics.</div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Edit Modal -->
+    <dialog id="editor-modal" class="p-0 overflow-hidden flex flex-col">
+        <div class="bg-gray-100 p-4 border-b flex justify-between items-center">
+            <h3 class="text-xl font-bold text-gray-800">Edit Study Data</h3>
+            <button id="close-modal" class="text-gray-600 hover:text-gray-900 text-2xl">&times;</button>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1">
+            <!-- Tabs -->
+            <div class="flex border-b mb-4">
+                <button class="editor-tab active px-4 py-2 text-blue-600 border-b-2 border-blue-600 font-medium" data-target="editor-physics">Physics</button>
+                <button class="editor-tab px-4 py-2 text-gray-500 hover:text-blue-600" data-target="editor-organic">Organic</button>
+                <button class="editor-tab px-4 py-2 text-gray-500 hover:text-blue-600" data-target="editor-inorganic">Inorganic</button>
+                <button class="editor-tab px-4 py-2 text-gray-500 hover:text-blue-600" data-target="editor-prereq">Prereqs</button>
+            </div>
+
+            <!-- Tab Contents -->
+            <div id="editor-physics" class="editor-content"></div>
+            <div id="editor-organic" class="editor-content hidden"></div>
+            <div id="editor-inorganic" class="editor-content hidden"></div>
+            <div id="editor-prereq" class="editor-content hidden"></div>
+        </div>
+        <div class="bg-gray-50 p-4 border-t flex justify-end gap-3">
+            <button id="cancel-edit" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded">Cancel</button>
+            <button id="save-edit" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium shadow">Save Changes</button>
+        </div>
+    </dialog>
+
+    <!-- Firebase Modules -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- 1. Firebase Init ---
+        let firebaseConfig;
+        let appId = 'study-plan-v1';
+
+        // Check if running in the AI environment
+        if (typeof __firebase_config !== 'undefined') {
+            firebaseConfig = JSON.parse(__firebase_config);
+            if (typeof __app_id !== 'undefined') appId = __app_id;
+        } else {
+            // ---------------------------------------------------------
+            // GITHUB PAGES CONFIGURATION
+            // 1. Go to console.firebase.google.com
+            // 2. Create a new project
+            // 3. Register a web app and copy the config object below
+            // ---------------------------------------------------------
+            firebaseConfig = {
+                apiKey: "YOUR_API_KEY_HERE",
+                authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+                projectId: "YOUR_PROJECT_ID",
+                storageBucket: "YOUR_PROJECT_ID.firebasestorage.app",
+                messagingSenderId: "YOUR_SENDER_ID",
+                appId: "YOUR_APP_ID"
+            };
+        }
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // --- 2. State Management ---
+        let user = null;
+        let studyData = {
+            physics: [
+                { name: 'Electric Charges and Fields', count: 22 },
+                { name: 'Electrostatic Potential and Capacitance', count: 20 },
+                { name: 'Current Electricity', count: 13 },
+                { name: 'Moving Charges and Magnetism', count: 13 },
+                { name: 'Magnetism and Matter', count: 4 },
+                { name: 'Electromagnetic Induction', count: 9 },
+                { name: 'Alternating Current', count: 6 },
+                { name: 'Electromagnetic Waves', count: 2 },
+                { name: 'Ray Optics', count: 14 },
+                { name: 'Wave optics', count: 6 },
+                { name: 'Dual Nature of radiation', count: 4 },
+                { name: 'Atoms', count: 3 },
+                { name: 'Nuclei', count: 4 }
+            ],
+            organic: [
+                { name: 'Optical Isomerism', count: 13 },
+                { name: 'Haloalkanes and Haloarenes', count: 19 },
+                { name: 'Alcohols, Phenols and Ethers', count: 12 },
+                { name: 'Aldehydes, Ketones and Carboxylic Acids', count: 3 },
+                { name: 'Amines', count: 4 },
+                { name: 'Biomolecules', count: 3 },
+                { name: 'Practical organic chemistry', count: 1 }
+            ],
+            inorganic: [
+                { name: 'Coordination Compound', count: 10 }
+            ],
+            prereq: [
+                { name: 'Organic Chemistry (Class 11 Revision)', count: 10 },
+                { name: 'Inorganic Chemistry (Class 11 Revision)', count: 3 }
+            ]
+        };
+
+        // --- 3. Constants ---
+        const CHART_COLORS = {
+            physics: '#D8C3A5',
+            organic: '#E98074',
+            inorganic: '#E85A4F',
+            prereq: '#8E8D8A'
+        };
+        
+        let currentFilter = 'all';
+        let compositionChartInstance = null;
+        let filteredChartInstance = null;
+
+        // --- 4. Auth & Data Loading ---
+        async function initAuth() {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                // Although not strictly using custom token here for simplicity in this specific context,
+                // adhering to the pattern of checking auth availability.
+                 await signInAnonymously(auth);
+            } else {
+                await signInAnonymously(auth);
+            }
+        }
+
+        initAuth();
+
+        onAuthStateChanged(auth, async (currentUser) => {
+            if (currentUser) {
+                user = currentUser;
+                await loadData();
+            }
+        });
+
+        async function loadData() {
+            if (!user) return;
+            try {
+                // Corrected Path: 6 segments (Collection -> Doc -> Collection -> Doc -> Collection -> Doc)
+                // users/{uid}/data/study_plan
+                const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'study_plan');
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    studyData = docSnap.data();
+                    showToast("Data loaded from cloud", "info");
+                } else {
+                    // First time? Save default data to create the doc
+                    await saveData(true); // silent save
+                }
+                renderDashboard();
+            } catch (error) {
+                console.error("Error loading data:", error);
+                renderDashboard(); // Fallback to default memory state
+            }
+        }
+
+        async function saveData(silent = false) {
+            if (!user) return;
+            try {
+                // Corrected Path: 6 segments
+                const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'study_plan');
+                await setDoc(docRef, studyData);
+                if(!silent) showToast("Changes saved successfully!");
+                renderDashboard();
+            } catch (error) {
+                console.error("Error saving data:", error);
+                if(!silent) showToast("Error saving data", "error");
+            }
+        }
+
+        // --- 5. UI Logic: Toast ---
+        function showToast(message, type = "success") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            if(type === 'error') toast.style.backgroundColor = '#EF4444';
+            if(type === 'info') toast.style.backgroundColor = '#3B82F6';
+            
+            container.appendChild(toast);
+            
+            // Trigger reflow
+            void toast.offsetWidth; 
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // --- 6. Dashboard Rendering ---
+        function renderDashboard() {
+            // Recalculate totals
+            const totalLectures = [...studyData.physics, ...studyData.organic, ...studyData.inorganic, ...studyData.prereq]
+                .reduce((sum, item) => sum + item.count, 0);
+            
+            // Approximate days calculation (simplified logic from original prompt)
+            // 13 prereqs in 1 day (Nov 18)
+            // Remainder at 5/day
+            const prereqCount = studyData.prereq.reduce((sum, i) => sum + i.count, 0);
+            const mainCount = totalLectures - prereqCount;
+            const mainDays = Math.ceil(mainCount / 5);
+            const totalDays = 1 + mainDays; // Nov 18 is day 1
+
+            // Update KPI
+            document.getElementById('kpi-total-lectures').textContent = totalLectures;
+            document.getElementById('kpi-days').textContent = totalDays;
+            
+            // Calculate End Date
+            const startDate = new Date('2025-11-18');
+            const endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + totalDays - 1); // -1 because start date counts
+            const options = { month: 'short', day: 'numeric' };
+            document.getElementById('kpi-end-date').textContent = endDate.toLocaleDateString('en-US', options);
+
+            updateCharts();
+            updateChapterList();
+        }
+
+        // --- 7. Chart Logic ---
+        function processLabel(label) {
+            if (label.length > 16) {
+                const words = label.split(' ');
+                const lines = [];
+                let currentLine = '';
+                for (const word of words) {
+                    if ((currentLine + ' ' + word).length > 16) {
+                        lines.push(currentLine);
+                        currentLine = word;
+                    } else {
+                        currentLine = (currentLine + ' ' + word).trim();
+                    }
+                }
+                lines.push(currentLine);
+                return lines;
+            }
+            return label;
+        }
+
+        const defaultChartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { font: { family: 'Inter', size: 12 } }
+                },
+                tooltip: {
+                    callbacks: {
+                        title: (tooltipItems) => {
+                            const item = tooltipItems[0];
+                            let label = item.chart.data.labels[item.dataIndex];
+                            return Array.isArray(label) ? label.join(' ') : label;
+                        }
+                    },
+                    bodyFont: { family: 'Inter' },
+                    titleFont: { family: 'Inter' }
+                }
+            }
+        };
+
+        function updateCharts() {
+            // Data Prep
+            const totals = {
+                physics: studyData.physics.reduce((s, i) => s + i.count, 0),
+                organic: studyData.organic.reduce((s, i) => s + i.count, 0),
+                inorganic: studyData.inorganic.reduce((s, i) => s + i.count, 0),
+                prereq: studyData.prereq.reduce((s, i) => s + i.count, 0)
+            };
+
+            // Composition Chart
+            const ctxDonut = document.getElementById('compositionDonutChart').getContext('2d');
+            if (compositionChartInstance) compositionChartInstance.destroy();
+            
+            compositionChartInstance = new Chart(ctxDonut, {
+                type: 'doughnut',
+                data: {
+                    labels: [`Physics (${totals.physics})`, `Organic (${totals.organic})`, `Inorganic (${totals.inorganic})`, `Prereqs (${totals.prereq})`],
+                    datasets: [{
+                        data: [totals.physics, totals.organic, totals.inorganic, totals.prereq],
+                        backgroundColor: [CHART_COLORS.physics, CHART_COLORS.organic, CHART_COLORS.inorganic, CHART_COLORS.prereq],
+                        borderColor: '#ffffff',
+                        borderWidth: 4
+                    }]
+                },
+                options: { ...defaultChartOptions }
+            });
+
+            // Filtered Chart
+            const ctxBar = document.getElementById('filteredBarChart').getContext('2d');
+            const filteredChartWrapper = document.getElementById('filtered-chart-wrapper');
+            const filteredChartPlaceholder = document.getElementById('filtered-chart-placeholder');
+            const filteredChartTitle = document.getElementById('filtered-chart-title');
+
+            if (filteredChartInstance) filteredChartInstance.destroy();
+
+            if (currentFilter === 'all') {
+                filteredChartWrapper.classList.add('hidden');
+                filteredChartPlaceholder.classList.remove('hidden');
+                filteredChartTitle.textContent = 'Chapter Breakdown';
+            } else {
+                filteredChartWrapper.classList.remove('hidden');
+                filteredChartPlaceholder.classList.add('hidden');
+                
+                const data = studyData[currentFilter];
+                const chartLabels = data.map(item => processLabel(item.name));
+                const chartData = data.map(item => item.count);
+                const chartColor = CHART_COLORS[currentFilter];
+
+                let title = 'Chapter Breakdown';
+                if(currentFilter === 'physics') title = `Physics Chapters (${totals.physics})`;
+                if(currentFilter === 'organic') title = `Organic Chem Chapters (${totals.organic})`;
+                if(currentFilter === 'inorganic') title = `Inorganic Chem Chapters (${totals.inorganic})`;
+                if(currentFilter === 'prereq') title = `Prerequisites (${totals.prereq})`;
+                filteredChartTitle.textContent = title;
+
+                filteredChartInstance = new Chart(ctxBar, {
+                    type: 'bar',
+                    data: {
+                        labels: chartLabels,
+                        datasets: [{
+                            label: 'Number of Lectures',
+                            data: chartData,
+                            backgroundColor: chartColor,
+                            borderColor: chartColor,
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        ...defaultChartOptions,
+                        indexAxis: 'y',
+                        plugins: {
+                            ...defaultChartOptions.plugins,
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: { beginAtZero: true, grid: { display: true, color: '#e2e8f0' } },
+                            y: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 10 } } }
+                        }
+                    }
+                });
+            }
+        }
+
+        function updateChapterList() {
+            const chapterList = document.getElementById('chapter-list');
+            chapterList.innerHTML = '';
+
+            let itemsToShow = [];
+            if (currentFilter === 'all') {
+                itemsToShow = [
+                    ...studyData.physics.map(c => ({ ...c, color: CHART_COLORS.physics })),
+                    ...studyData.organic.map(c => ({ ...c, color: CHART_COLORS.organic })),
+                    ...studyData.inorganic.map(c => ({ ...c, color: CHART_COLORS.inorganic })),
+                    ...studyData.prereq.map(c => ({ ...c, color: CHART_COLORS.prereq }))
+                ];
+            } else {
+                itemsToShow = studyData[currentFilter].map(c => ({ ...c, color: CHART_COLORS[currentFilter] }));
+            }
+
+            if (itemsToShow.length === 0) {
+                chapterList.innerHTML = '<li class="text-gray-500 text-center">No chapters found.</li>';
+                return;
+            }
+            
+            itemsToShow.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'flex justify-between items-center p-3 rounded-lg bg-white shadow-sm';
+                li.style.borderLeft = `4px solid ${item.color}`;
+                li.innerHTML = `
+                    <span class="font-medium text-gray-700">${item.name}</span>
+                    <span class="font-bold text-lg" style="color: ${item.color};">${item.count}</span>
+                `;
+                chapterList.appendChild(li);
+            });
+        }
+
+        // --- 8. Interaction Logic ---
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const filter = e.target.dataset.filter;
+                if (filter === currentFilter) return;
+                currentFilter = filter;
+                filterButtons.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                updateCharts();
+                updateChapterList();
+            });
+        });
+
+        // --- 9. Editor Modal Logic ---
+        const modal = document.getElementById('editor-modal');
+        const editBtn = document.getElementById('edit-mode-btn');
+        const closeBtn = document.getElementById('close-modal');
+        const cancelBtn = document.getElementById('cancel-edit');
+        const saveBtn = document.getElementById('save-edit');
+        
+        // Temp state for editor
+        let editorData = {};
+
+        editBtn.addEventListener('click', () => {
+            // Deep clone data
+            editorData = JSON.parse(JSON.stringify(studyData));
+            renderEditor();
+            modal.showModal();
+        });
+
+        closeBtn.addEventListener('click', () => modal.close());
+        cancelBtn.addEventListener('click', () => modal.close());
+
+        saveBtn.addEventListener('click', async () => {
+            // Read values from DOM inputs into editorData
+            ['physics', 'organic', 'inorganic', 'prereq'].forEach(key => {
+                const container = document.getElementById(`editor-${key}`);
+                const rows = container.querySelectorAll('.chapter-row');
+                editorData[key] = [];
+                rows.forEach(row => {
+                    const nameInput = row.querySelector('.name-input');
+                    const countInput = row.querySelector('.count-input');
+                    if (nameInput && countInput) {
+                        editorData[key].push({
+                            name: nameInput.value,
+                            count: parseInt(countInput.value) || 0
+                        });
+                    }
+                });
+            });
+
+            // Commit changes
+            studyData = editorData;
+            await saveData();
+            modal.close();
+        });
+
+        // Tabs logic
+        document.querySelectorAll('.editor-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                document.querySelectorAll('.editor-tab').forEach(t => {
+                    t.classList.remove('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
+                    t.classList.add('text-gray-500');
+                });
+                e.target.classList.add('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
+                e.target.classList.remove('text-gray-500');
+
+                document.querySelectorAll('.editor-content').forEach(c => c.classList.add('hidden'));
+                document.getElementById(e.target.dataset.target).classList.remove('hidden');
+            });
+        });
+
+        function renderEditor() {
+            ['physics', 'organic', 'inorganic', 'prereq'].forEach(key => {
+                const container = document.getElementById(`editor-${key}`);
+                container.innerHTML = '';
+                
+                // Render Rows
+                editorData[key].forEach((item, index) => {
+                    const row = document.createElement('div');
+                    row.className = 'chapter-row flex gap-2 mb-2 items-center';
+                    row.innerHTML = `
+                        <input type="text" class="name-input flex-grow border rounded px-2 py-1 text-sm" value="${item.name}">
+                        <input type="number" class="count-input w-20 border rounded px-2 py-1 text-sm" value="${item.count}" min="0">
+                        <button class="text-red-500 hover:text-red-700 px-2" onclick="this.parentElement.remove()">&times;</button>
+                    `;
+                    container.appendChild(row);
+                });
+
+                // Add Button
+                const addBtn = document.createElement('button');
+                addBtn.className = 'text-sm text-blue-600 font-medium mt-2 hover:underline';
+                addBtn.textContent = '+ Add Chapter';
+                addBtn.onclick = () => {
+                    const row = document.createElement('div');
+                    row.className = 'chapter-row flex gap-2 mb-2 items-center';
+                    row.innerHTML = `
+                        <input type="text" class="name-input flex-grow border rounded px-2 py-1 text-sm" placeholder="Chapter Name">
+                        <input type="number" class="count-input w-20 border rounded px-2 py-1 text-sm" value="0" min="0">
+                        <button class="text-red-500 hover:text-red-700 px-2" onclick="this.parentElement.remove()">&times;</button>
+                    `;
+                    container.insertBefore(row, addBtn);
+                };
+                container.appendChild(addBtn);
+            });
+        }
+    </script>
+</body>
+</html>
